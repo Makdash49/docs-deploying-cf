@@ -8,7 +8,7 @@ owner: Release Integration
 This topic describes getting started with open source Cloud Foundry
 on vCloud Air or on a supported vCloud Director (vCD) deployment (5.1+).
 
-<pre class="note"><strong>Note</strong>: These instructions emphasize simplicity, not security, scale, or any other production considerations.</pre>
+<p class="note"><strong>Note</strong>: These instructions emphasize simplicity, not security, scale, or any other production considerations.</p>
 
 The goal of these instructions is to help you deploy an environment that looks
 like the following diagram:
@@ -101,7 +101,7 @@ In general, we use a wildcard domain to map all apps and services running on a C
 
 The system services are made available in the same way - `api.mycf.com`, `console.mycf.com`, etc., may all be used. This can lead to some phishing opportunities, however. For example, someone could pretend to be a legitimate system service and create `change_your_password.mycf.com` or `sign_up_with_credit_card.mycf.com`. To avoid this, Cloud Foundry supports two domains, one for system applications and one for general applications. Only administrators of the system can deploy applications to the system domain.
 
-These instructions explain a deployment using a single wildcard domain for both applications and system services. It is straightforward to use separate domains if you wish, when [creating the Cloud Foundry deployment manifest](../common/create_a_manifest.html).
+These instructions explain a deployment using a single wildcard domain for both applications and system services. It is straightforward to use separate domains if you wish, when [creating the Cloud Foundry deployment manifest](../common/vsphere-vcloud-cf-stub.html).
 
 Even when using a single wildcard domain, we recommend that you use different subdomain names for your system domain and your app domain. Doing so prevents apps from creating routes that overlap and conflict with system routes.
 
@@ -188,7 +188,7 @@ The rest of this documentation assumes you have created this machine in the targ
 4. Once it starts, assign an IP address to the jump box by logging into the VM and assigning a static IP address using [Ubuntu's instructions](https://help.ubuntu.com/10.04/serverguide/network-configuration.html#static-ip-addressing).
 5. Install a set of packages we will need for various purposes during this installation
 
-		sudo apt-get -y install libsqlite3-dev genisoimage libxslt-dev libxml2-dev whois openssl bind9 libpq-dev libmysqlclient-dev
+        sudo apt-get -y install libsqlite3-dev genisoimage libxslt-dev libxml2-dev whois openssl bind9 libpq-dev libmysqlclient-dev
 
 ## <a id="bosh-cli"></a> Install BOSH CLI ##
 

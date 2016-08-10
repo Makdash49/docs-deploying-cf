@@ -1,21 +1,33 @@
 ---
-title: Customizing the Cloud Foundry Deployment Manifest Stub for AWS
+title: Customizing the Cloud Foundry Deployment Manifest for AWS
 owner: Release Integration
 ---
 
 <strong><%= modified_date %></strong>
 
-This topic describes how to create the Cloud Foundry deployment manifest stub for AWS. The manifest stub is a YAML (.yml) configuration file that the script `generate_deployment_manifest` combines with other configuration files in the `cf-release` repository to generate your Cloud Foundry deployment manifest.
+This topic describes how to create the Cloud Foundry deployment manifest for Amazon Web Services (AWS). Before creating a manifest, you must have already [set up an environment](setup_aws.html) for Cloud Foundry on AWS and [deployed BOSH](setup_bosh_aws.html) on AWS.
 
-Save a copy of the manifest stub as a YAML file in your deployment directory.
-Follow the [editing instructions](#editing) to customize the manifest stub with
-information about your environment.
+To create a Cloud Foundry manifest, you must perform the following steps:
 
-##<a id="stub"></a>Cloud Foundry Deployment Manifest Stub for AWS ##
+1. Use the BOSH CLI to [retrieve your BOSH Director UUID](#bosh-uuid), which you use to customize your manifest stub.
+1. Create a manifest stub in YAML format. See the [example manifest stub](#stub) for AWS below, and follow the [editing instructions](#editing) to customize it for your deployment.
+1. Use a script to combine the manifest stub with other configuration files in the `cf-release` repository to [generate your deployment manifest](#generate).
+
+<p class="note"><strong>Note</strong>: AWS defaults to using Fog with AWS credentials for the Cloud Controller blobstore. For alternative blobstore configurations, see the <a href="/deploying/common/cc-blobstore-config.html">Cloud Controller Blobstore Configuration</a> topic.</p>
+
+##<a id='bosh-uuid'></a> Step 1: Retrieve Your BOSH Director UUID
+
+<%= partial '../common/bosh_uuid' %>
+
+##<a id='stub'></a> Step 2: Create Your Manifest Stub
+
+Review the [example manifest stub](#example-stub) for AWS, and then follow the [editing instructions](#editing) to customize it for your deployment.
+
+###<a id="example-stub"></a>Cloud Foundry Deployment Manifest Stub for AWS
 
 <%= yield_for_code_snippet from: 'cloudfoundry/cf-release', at: 'cf-stub-aws' %>
 
-##<a id="editing"></a>Editing Instructions ##
+###<a id="editing"></a>Editing Instructions 
 
 <table border="1" class="nice">
   <tr>
@@ -69,13 +81,13 @@ networks:
         security_groups:
           - cf
         subnet: (( properties.template_only.aws.subnet_ids.cf2 ))
-	  </code></pre></td>
+      </code></pre></td>
     <td>If you used <code>bosh aws create</code> to set up your AWS environment, change the IP addresses here if needed to fit the subnet range from your bosh.yml file.
     <br/><br/>
     This example assumes you have two subnets in your AWS VPC with CIDRs <code>10.10.16.0/20</code> and <code>10.10.80.0/20</code> respectively. Update the values for <code>range</code>, <code>reserved</code>, <code>static</code>, and <code>gateway</code> accordingly if the CIDRs for your subnets are different.
     <br/><br/>
     This also assumes that you have a security group <code>cf</code> suitable for your Cloud Foundry VMs. Change this too if the name of your security group is different.
-	  </td>
+      </td>
   </tr>
   <tr>
     <td><pre><code>
@@ -89,7 +101,7 @@ properties:
       subnet_ids:
         cf1: SUBNET_ID_1
         cf2: SUBNET_ID_2
-	  </code></pre></td>
+      </code></pre></td>
     <td>Replace <code>AWS_ACCESS_KEY</code> and <code>AWS_SECRET_ACCESS_KEY</code> with AWS credentials to allow Cloud Controller to manage assets in the S3 buckets you have prepared for this deployment.
     <br/><br/>
     Replace <code>ZONE_1</code> and <code>ZONE_2</code> with two EC2 Availability Zones that you want to distribute your deployment across.
@@ -105,10 +117,12 @@ properties:
   system_domain_organization: SYSTEM_DOMAIN_ORGANIZATION
   app_domains:
    - APP_DOMAIN
-	  </code></pre></td>
-    <td>Replace <code>SYSTEM_DOMAIN</code> and <code>APP_DOMAIN</code> with the full domain you want associated with applications pushed to your Cloud Foundry installation. You must have already acquired these domains and configured their DNS records on Route53 dashboard in AWS so that these domains resolve to your load balancer. Example: "cloud-09.cf-app.com."
+      </code></pre></td>
+    <td>Replace <code>SYSTEM_DOMAIN</code> with the domain to be used for all system components. For instance, the Cloud Controller API will be reachable via <code>api.SYSTEM_DOMAIN</code>. Replace <code>APP_DOMAIN</code> with the domain you want associated with applications pushed to your Cloud Foundry installation. For instance, if you push <code>my-app</code> it will be reachable via <code>my-app.APP_DOMAIN</code>.
     <br/><br/>
-    If you used <code>bosh aws create</code>, this value comes from concatenating the <code>BOSH_VPC_SUBDOMAIN</code> and <code>BOSH_VPC_DOMAIN</code> values in the <code>bosh_environment</code> file.
+    It is generally advised to have separate values for <code>SYSTEM_DOMAIN</code> and <code>APP_DOMAIN</code>, e.g. <code>sys.cloud-09.cf-app.com</code> and <code>apps.cloud-09.cf-app.com</code>. For simple deployments, you can use the same domain for both, e.g. <code>cloud-09.cf-app.com</code>. However, you cannot have one domain property extend the other, e.g. you cannot have your <code>SYSTEM_DOMAIN</code> set to <code>cloud-09.cf-app.com</code> and your <code>APP_DOMAIN</code> set to <code>apps.cloud-09.cf-app.com</code>.
+    <br/><br/>
+    If you used <code>bosh aws create</code>, use the same value for both, created by concatenating the <code>BOSH_VPC_SUBDOMAIN</code> and <code>BOSH_VPC_DOMAIN</code> values in the <code>bosh_environment</code> file.
     <br/><br/>
     Pick any name you like for the <code>SYSTEM_DOMAIN_ORGANIZATION</code>. This organization will be created and configured to own the <code>SYSTEM_DOMAIN</code>.
     </td>
@@ -128,8 +142,6 @@ properties:
       <br /><br />
       Replace <code>CCDB_ENCRYPTION_KEY</code>
       with a secure key that you generate to encrypt sensitive values in the Cloud Controller database.
-      <br /><br />
-      Cloud Controller uses four blobstores: <code>buildpacks</code>, <code>droplets</code>, <code>packages</code>, and <code>resource_pool</code>. You can edit your manifest stub to configure each blobstore in one of three ways: a blobstore that uses the Fog Ruby gem with AWS credentials, a blobstore that uses the Fog Ruby gem with AWS IAM Instance Profiles, or a blobstore that uses the WebDAV protocol. Review the <a href="#config-blobstores">Configuring Blobstores</a> section for more information.
     </td>
   </tr>
   <tr>
@@ -151,8 +163,8 @@ properties:
       <br /><br />
       If you used <code>bosh aws create</code>, find the necessary values in the generated file <code>aws_rds_bosh_receipt.yml</code>. The database is an Amazon RDS instance, and the <code>CCDB_*</code> values in the stub must match the scheme, username, password, address, and port defined by AWS.
       <br /><br />
-      If you deployed your database without <code>bosh aws create</code>, such as using the <code>postgres</code> job in cf-release, the <code>CCDB_*</code> values must match the configuration of the database node.
-	  </td>
+      If you deployed your database without <code>bosh aws create</code>, such as using the <code>postgres</code> job in cf-release, the <code>CCDB_*</code> values must match the configuration of the database node. If you are using PostgreSQL, your database must have the required extensions available for Cloud Foundry: <code>uuid-ossp</code>, <code>pgcrypto</code>, and <code>citext</code>. The <code>db_scheme</code> for a PostgreSQL database is <code>postgresql</code>, not <code>postgres</code>.
+      </td>
   </tr>
   <tr>
     <td><pre><code>
@@ -164,9 +176,9 @@ properties:
     server_key: CONSUL_SERVER_KEY
     agent_cert: CONSUL_AGENT_CERT
     agent_key: CONSUL_AGENT_KEY
-	  </code></pre></td>
+      </code></pre></td>
     <td>See the instructions on <a href="../common/consul-security.html">security configuration for consul</a>.
-	  </td>
+      </td>
   </tr>
   <tr>
     <td><pre><code>
@@ -174,17 +186,17 @@ properties:
     shared_secret: LOGGREGATOR_ENDPOINT_SHARED_SECRET
     </code></pre></td>
     <td>Generate a string secret and replace <code>LOGGREGATOR_ENDPOINT_SHARED_SECRET</code>.
-	  </td>
+      </td>
   </tr>
   <tr>
     <td><pre><code>
   nats:
     user: NATS_USER
     password: NATS_PASSWORD
-	  </code></pre></td>
+      </code></pre></td>
     <td>Replace <code>NATS_USER</code> and
-		<code>NATS_PASSWORD</code> with a username and secure password of your choosing. Cloud Foundry components use these credentials to communicate with each other over the NATS message bus.
-	  </td>
+        <code>NATS_PASSWORD</code> with a username and secure password of your choosing. Cloud Foundry components use these credentials to communicate with each other over the NATS message bus.
+      </td>
   </tr>
   <tr>
     <td><pre><code>
@@ -192,11 +204,11 @@ properties:
     status:
       user: ROUTER_USER
       password: ROUTER_PASSWORD
-	  </code></pre></td>
+      </code></pre></td>
     <td>
       Replace <code>ROUTER_USER</code> and
-  		<code>ROUTER_PASSWORD</code> with a username and secure password of your choosing.
-	  </td>
+        <code>ROUTER_PASSWORD</code> with a username and secure password of your choosing.
+      </td>
   </tr>
   <tr>
     <td><pre><code>
@@ -220,7 +232,7 @@ properties:
         secret: NOTIFICATIONS_CLIENT_SECRET
     </code></pre></td>
     <td>Replace all the <code>*_SECRET</code>s with secure secrets that you generate.
-	  </td>
+      </td>
   </tr>
   <tr>
     <td><pre><code>
@@ -254,14 +266,14 @@ properties:
         name: uaadb
     address: UAADB_ADDRESS
     port: UAADB_PORT
-	  </code></pre></td>
+      </code></pre></td>
     <td>
       This section of the stub defines how the UAA connects to its database. The values depend on how you deployed your database.
       <br /><br />
-      If you used <code>bosh aws create</code>, you can find the necessary values in the generated file <code>aws_rds_bosh_receipt.yml</code>. The database is an Amazon RDS instance, and the <code>UAADB_*</code> values in the stub must match the scheme, username, password, address, and port defined by AWS.
+      If you used <code>bosh aws create</code>, find the necessary values in the generated file <code>aws_rds_bosh_receipt.yml</code>. The database is an Amazon RDS instance, and the <code>UAADB_*</code> values in the stub must match the scheme, username, password, address, and port defined by AWS.
       <br /><br />
-      If you deployed your database without <code>bosh aws create</code>, such as using the <code>postgres</code> job in cf-release, the <code>CCDB_*</code> values must match the configuration of the database node.
-	  </td>
+      If you deployed your database without <code>bosh aws create</code>, such as using the <code>postgres</code> job in cf-release, the <code>UAADB_*</code> values must match the configuration of the database node. If you are using PostgreSQL, your database must have the required extensions available for Cloud Foundry: <code>uuid-ossp</code>, <code>pgcrypto</code>, and <code>citext</code>. The <code>db_scheme</code> for a PostgreSQL database is <code>postgresql</code>, not <code>postgres</code>.
+      </td>
   </tr>
   <tr>
     <td><pre><code>
@@ -278,162 +290,9 @@ properties:
   </tr>
 </table>
 
-##<a id="config-blobstores"></a>Configuring Blobstores
+<%= partial '../common/additional_config' %>
 
-To configure your blobstores, you must edit the manifest stub.
+##<a id='generate'></a>Step 3: Generate Your Manifest
 
-Cloud Controller uses four blobstores: <code>buildpacks</code>, <code>droplets</code>, <code>packages</code>, and <code>resource_pool</code>. By default, the blobstores use the Fog Ruby gem. To configure a blobstore to use the WebDAV protocol instead, follow the steps under the <a href="#webdav">WebDAV</a> section below.
-
-You can configure your blobstores to use Fog with AWS credentials, Fog with IAM Instance Profiles, or the WebDAV protocol.
-
-###<a id="fog-aws-creds"></a> Fog with AWS Credentials
-
-To use Fog blobstores with AWS credentials, perform the following steps:
-
-1. Insert the following configuration into your manifest stub under `properties.cc`: 
-
-    ```
-    cc:
-      buildpacks:
-        blobstore_type: fog
-        buildpack_directory_key: YOUR-AWS-BLOBSTORE-BUCKET
-        fog_connection: &fog_connection
-          aws_access_key_id: AWS_ACCESS_KEY
-          aws_secret_access_key: AWS_SECRET_ACCESS_KEY
-          provider: AWS
-          region: us-east-1
-      droplets:
-        blobstore_type: fog
-        droplet_directory_key: YOUR-AWS-DROPLET-BUCKET
-        fog_connection: *fog_connection
-      packages:
-        blobstore_type: fog
-        app_package_directory_key: YOUR-AWS-PACKAGE-BUCKET
-        fog_connection: *fog_connection
-      resource_pool:
-        blobstore_type: fog
-        droplet_directory_key: YOUR-AWS-RESOURCE-BUCKET
-        fog_connection: *fog_connection
-    ```
-2. Replace `AWS_ACCESS_KEY` and `AWS_SECRET_ACCESS_KEY` with your AWS credentials, and `YOUR-AWS-BLOBSTORE-BUCKET`, `YOUR-AWS-DROPLET-BUCKET`, `YOUR-AWS-PACKAGE-BUCKET`, `YOUR-AWS-RESOURCE-BUCKET` with the names of your AWS buckets. In the AWS console, you must assign your credentials an IAM policy that allows all S3 actions on all of these buckets.
-
-3. To provide further configuration, create a <code>fog_connection</code> hash to pass through to the Fog gem.
-
-###<a id="fog-aws-iam"></a> Fog with IAM Instance Profiles
-
-To configure Fog blobstores to use <a href="http://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-ec2.html">AWS IAM Instance Profiles</a>, perform the following steps:
-
-1. Insert the following configuration into your manifest stub under `properties.cc`:
-
-    ```
-    cc:
-      buildpacks:
-        blobstore_type: fog
-        buildpack_directory_key: YOUR-AWS-BLOBSTORE-BUCKET
-        fog_connection: &fog_connection
-          provider: AWS
-          region: us-east-1
-          use_iam_profile: true
-      droplets:
-        blobstore_type: fog
-        droplet_directory_key: YOUR-AWS-DROPLET-BUCKET
-        fog_connection: *fog_connection
-      packages:
-        blobstore_type: fog
-        app_package_directory_key: YOUR-AWS-PACKAGE-BUCKET
-        fog_connection: *fog_connection
-      resource_pool:
-        blobstore_type: fog
-        droplet_directory_key: YOUR-AWS-RESOURCE-BUCKET
-        fog_connection: *fog_connection
-    ```
-1. Replace `YOUR-AWS-BLOBSTORE-BUCKET`, `YOUR-AWS-DROPLET-BUCKET`, `YOUR-AWS-PACKAGE-BUCKET`, `YOUR-AWS-RESOURCE-BUCKET` with the names of your AWS buckets. To provide further configuration, create a <code>fog_connection</code> hash to pass through to the Fog gem.
-1. Complete the steps documented in the <a href="http://bosh.io/docs/aws-iam-instance-profiles.html#director-with-s3-blobstore">AWS CPI and Director configured with an S3 blobstore instructions</a> section of the BOSH documentation.
-2. In the AWS console, configure an additional <code>cloud-controller</code> IAM role that gives access to both the BOSH S3 buckets and the Cloud Controller S3 buckets specified in your manifest stub:
-<pre><code>
-{
-"Version": "2012-10-17",
-"Statement": [{
-  "Effect": "Allow",
-  "Action": [ "s3:\*" ],
-  "Resource": [
-    "arn:aws:s3:::BOSH\_BUCKET\_NAME",
-    "arn:aws:s3:::BOSH\_BUCKET\_NAME/\*",
-    "arn:aws:s3:::YOUR-AWS-BLOBSTORE-BUCKET",
-    "arn:aws:s3:::YOUR-AWS-BLOBSTORE-BUCKET/\*",
-    "arn:aws:s3:::YOUR-AWS-DROPLET-BUCKET",
-    "arn:aws:s3:::YOUR-AWS-DROPLET-BUCKET/\*",
-    "arn:aws:s3:::YOUR-AWS-PACKAGE-BUCKET",
-    "arn:aws:s3:::YOUR-AWS-PACKAGE-BUCKET/\*",
-    "arn:aws:s3:::YOUR-AWS-RESOURCE-BUCKET",
-    "arn:aws:s3:::YOUR-AWS-RESOURCE-BUCKET/\*",
-  ]
-}]
-}
-</pre></code>
-If you are using the AWS console, an IAM Role is automatically assigned to an IAM Instance Profile with the same name, <code>cloud-controller</code>. If you are not using the AWS console, you must create an IAM Instance Profile with a single assigned IAM Role.
-
-3. In your Cloud Foundry deployment manifest, configure a resource pool to use the <code>cloud-controller</code> IAM Instance Profile:
-  <pre><code>
-  resource\_pools:
-  \- name: cloud-controller-resource-pool
-      network: default
-      stemcell: { ... }
-      cloud\_properties:
-          instance\_type: c3.large
-          iam\_instance\_profile: cloud-controller
-  </code></pre>
-4. Assign all Cloud Controller jobs (<code>api\_z\*</code>) and Cloud Controller Worker jobs (<code>api\_worker\_z\*</code>) to the <code>cloud-controller-resource-pool</code>.
-
-###<a id="webdav"></a>WebDAV
-
-To configure your blobstores to use the WebDAV protocol, perform the following steps:
-
-1. Insert the following configuration into your manifest stub under `properties.blobstore` and `properties.cc`:
-
-    ```
-    blobstore:
-      admin_users:
-      - password: WEBDAV_BASIC_AUTH_PASSWORD
-        username: WEBDAV_BASIC_AUTH_USER
-      port: 80
-      secure_link:
-        secret: WEBDAV_SECRET
-      tls:
-        cert: WEBDAV_CERT
-        port: 443
-        private_key: WEBDAV_PRIVATE_KEY
-        ca_cert: WEBDAV_CA_CERT_BUNDLE
-    cc:
-      buildpacks:
-        blobstore_type: webdav
-        buildpack_directory_key: cc-buildpacks
-        webdav_config: &webdav_config
-          public_endpoint: WEBDAV_PUBLIC_ENDPOINT
-          private_endpoint: WEBDAV_PRIVATE_ENDPOINT
-          username: WEBDAV_BASIC_AUTH_USER
-          password: WEBDAV_BASIC_AUTH_PASSWORD
-          ca_cert: WEBDAV_CA_CERT_BUNDLE
-      droplets:
-        blobstore_type: webdav
-        droplet_directory_key: cc-droplets
-        webdav_config: *webdav_config
-      packages:
-        blobstore_type: webdav
-        app_package_directory_key: cc-packages
-        webdav_config: *webdav_config
-      resource_pool:
-        blobstore_type: webdav
-        droplet_directory_key: cc-resources
-        webdav_config: *webdav_config
-    ```
-
-1. Configure your WebDAV blobstores by performing the following steps:
-      * Replace <code>WEBDAV\_BASIC\_AUTH\_USER</code> and <code>WEBDAV\_BASIC\_AUTH\_PASSWORD</code> with Basic AUTH credentials that Cloud Controller can use to talk your WebDAV installation.
-      * Replace <code>WEBDAV\_SECRET</code> with a secret phrase used to sign URLs.
-      * Replace <code>WEBDAV\_CERT</code>, <code>WEBDAV\_PRIVATE\_KEY</code>, and <code>WEBDAV\_CA\_CERT\_BUNDLE</code> with proper TLS configuration that will be used for the internal blobstore.
-      * Replace <code>WEBDAV\_PUBLIC\_ENDPOINT</code> with the public URL (e.g. https://blobstore.SYSTEM_DOMAIN) that resolves to your WebDAV installation.
-      * Replace <code>WEBDAV\_PRIVATE\_ENDPOINT</code> with a URL routable on your internal network. This defaults to https://blobstore.service.cf.internal if not set.
-      * Replace <code>WEBDAV\_BASIC\_AUTH\_USER</code> and <code>WEBDAV\_BASIC\_AUTH\_PASSWORD</code> with Basic AUTH credentials that Cloud Controller can use to talk your WebDAV installation.
-1. To provide further configuration, create a <code>webnav\_config</code> hash.
+<%= partial '../common/generic_manifest' %>
 
